@@ -1,5 +1,5 @@
 {
-  "name": "agentwatch",
+  "name": "@nicofains1/agentwatch",
   "version": "0.1.0",
   "description": "Multi-agent observability: cascade failure detection, heartbeats, and forensic replay",
   "type": "module",
