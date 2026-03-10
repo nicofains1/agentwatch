@@ -1,4 +1,4 @@
-# agentwatch
+# @nicofains1/agentwatch
 
 Observability for multi-agent systems. Track heartbeats, trace cross-agent actions, detect cascade failures, and replay what went wrong.
 
@@ -7,13 +7,13 @@ Built for teams running fleets of AI agents (CrewAI, AutoGen, LangGraph, custom)
 ## Install
 
 ```bash
-npm install agentwatch
+npm install @nicofains1/agentwatch
 ```
 
 ## Quick Start
 
 ```typescript
-import { AgentWatch } from 'agentwatch';
+import { AgentWatch } from '@nicofains1/agentwatch';
 
 const aw = new AgentWatch(); // uses agentwatch.db by default
 
