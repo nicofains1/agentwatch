@@ -23,7 +23,7 @@ export function report(
     agent,
     status,
     context,
-    created_at: new Date().toISOString(),
+    created_at: sqliteNow(),
   };
 }
 
