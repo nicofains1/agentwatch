@@ -2,13 +2,83 @@
 
 import { AgentWatch } from '../index.js';
 import { formatDashboard } from '../dashboard.js';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
-const dbPath = process.env.AGENTWATCH_DB ?? 'agentwatch.db';
-const aw = new AgentWatch({ db_path: dbPath });
+if (command === 'demo') {
+  runDemo();
+} else {
+  const dbPath = process.env.AGENTWATCH_DB ?? 'agentwatch.db';
+  const aw = new AgentWatch({ db_path: dbPath });
+  runCli(aw, command);
+}
 
+function runDemo() {
+  const dbPath = join(tmpdir(), `agentwatch-demo-${Date.now()}.db`);
+  const aw = new AgentWatch({ db_path: dbPath });
+
+  try {
+    // Seed heartbeats for a 5-agent fleet
+    aw.report('scheduler', 'healthy', '{"tasks_queued": 12}');
+    aw.report('fetcher', 'healthy', '{"apis_connected": 3}');
+    aw.report('processor', 'degraded', '{"queue_depth": 847}');
+    aw.report('notifier', 'healthy', '{"channels": ["slack", "email"]}');
+    aw.report('reporter', 'error', '{"last_report": "failed"}');
+
+    // Create a cascade: fetcher times out -> processor gets bad data -> notifier fails
+    const t1 = aw.createTraceId();
+    const e1 = aw.trace(t1, 'scheduler', 'dispatch-batch', '{"batch_id": 42}', '{"assigned_to": "fetcher"}', { durationMs: 15 });
+    const e2 = aw.trace(t1, 'fetcher', 'call-api', '{"url": "https://api.vendor.io/data"}', 'TIMEOUT after 30000ms', { parentEventId: e1.id, status: 'error', durationMs: 30000 });
+    const e3 = aw.trace(t1, 'processor', 'transform', '{"source": "fetcher"}', 'Error: input is null - expected array from fetcher', { parentEventId: e2.id, status: 'error', durationMs: 120 });
+    const e4 = aw.trace(t1, 'notifier', 'send-alert', '{"type": "batch-complete"}', 'Error: no processed data to report', { parentEventId: e3.id, status: 'error', durationMs: 8 });
+
+    // A second trace that works fine
+    const t2 = aw.createTraceId();
+    aw.trace(t2, 'scheduler', 'dispatch-batch', '{"batch_id": 43}', '{"assigned_to": "fetcher"}', { durationMs: 10 });
+    aw.trace(t2, 'fetcher', 'call-api', '{"url": "https://api.vendor.io/data"}', '{"rows": 250}', { durationMs: 800 });
+
+    // Print everything
+    console.log(aw.dashboardText());
+    console.log('');
+
+    // Show cascade
+    const chain = aw.correlate(e4.id);
+    if (chain) {
+      console.log(`Cascade Failure (4 steps, root cause: ${chain.root_cause.agent}/${chain.root_cause.action})`);
+      console.log('='.repeat(60));
+      for (let i = 0; i < chain.chain.length; i++) {
+        const step = chain.chain[i];
+        const tag = i === 0 ? 'ROOT' : i === chain.chain.length - 1 ? 'FAIL' : `  ${i} `;
+        console.log(`[${tag}] ${step.agent}/${step.action} [${step.status}] ${step.duration_ms}ms`);
+        console.log(`       ${truncate(step.output, 80)}`);
+        if (i < chain.chain.length - 1) console.log('       |');
+      }
+    }
+
+    console.log('');
+    console.log(`Alerts: ${aw.activeAlerts().length} active`);
+    for (const a of aw.activeAlerts()) {
+      console.log(`  [${a.severity.toUpperCase()}] ${a.agent}: ${truncate(a.message, 60)}`);
+    }
+
+    console.log('');
+    console.log('---');
+    console.log(`Demo database: ${dbPath}`);
+    console.log('Explore it:');
+    console.log(`  AGENTWATCH_DB=${dbPath} npx @nicofains1/agentwatch dashboard`);
+    console.log(`  AGENTWATCH_DB=${dbPath} npx @nicofains1/agentwatch failures`);
+    console.log(`  AGENTWATCH_DB=${dbPath} npx @nicofains1/agentwatch cascade ${e4.id}`);
+    console.log(`  AGENTWATCH_DB=${dbPath} npx @nicofains1/agentwatch replay ${t1}`);
+  } finally {
+    aw.close();
+  }
+  return;
+}
+
+function runCli(aw: AgentWatch, command: string | undefined) {
 try {
   switch (command) {
     case 'dashboard': {
@@ -119,6 +189,7 @@ try {
       console.log('AgentWatch - Multi-agent observability');
       console.log('');
       console.log('Usage:');
+      console.log('  agentwatch demo                   Run a demo with sample data');
       console.log('  agentwatch dashboard              Fleet health overview');
       console.log('  agentwatch cascade <event-id>     Trace cascade from failure');
       console.log('  agentwatch failures [agent]       List recent failures');
@@ -131,6 +202,7 @@ try {
   }
 } finally {
   aw.close();
+}
 }
 
 function truncate(s: string, max: number): string {

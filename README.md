@@ -2,7 +2,36 @@
 
 Observability for multi-agent systems. Track heartbeats, trace cross-agent actions, detect cascade failures, and replay what went wrong.
 
-Built for teams running fleets of AI agents (CrewAI, AutoGen, LangGraph, custom) who need to understand why Agent B failed after Agent A timed out.
+Built for teams running fleets of AI agents (CrewAI, AutoGen, LangGraph, PocketFlow, custom) who need to understand why Agent B failed after Agent A timed out.
+
+## Try it in 30 seconds
+
+No install needed. Run this and see a full cascade failure traced across 5 agents:
+
+```bash
+npx @nicofains1/agentwatch demo
+```
+
+Output:
+
+```
+AgentWatch Fleet Dashboard
+============================================================
+Agents: 5 total | 3 healthy | 1 degraded | 1 error | 0 offline
+
+Cascade Failure (4 steps, root cause: scheduler/dispatch-batch)
+============================================================
+[ROOT] scheduler/dispatch-batch [ok] 15ms
+       |
+[  1 ] fetcher/call-api [error] 30000ms
+       TIMEOUT after 30000ms
+       |
+[  2 ] processor/transform [error] 120ms
+       Error: input is null - expected array from fetcher
+       |
+[FAIL] notifier/send-alert [error] 8ms
+       Error: no processed data to report
+```
 
 ## Install
 
@@ -15,27 +44,31 @@ npm install @nicofains1/agentwatch
 ```typescript
 import { AgentWatch } from '@nicofains1/agentwatch';
 
-const aw = new AgentWatch(); // uses agentwatch.db by default
+const aw = new AgentWatch(); // creates agentwatch.db
 
-// Register heartbeats from your agents
+// 1. Report heartbeats from your agents
 aw.report('agent-a', 'healthy');
 aw.report('agent-b', 'healthy');
 
-// Trace cross-agent actions
+// 2. Trace actions across agents
 const traceId = aw.createTraceId();
 
-const e1 = aw.trace(traceId, 'agent-a', 'fetch-data', 'url=https://api.example.com', 'rows=150');
-const e2 = aw.trace(traceId, 'agent-b', 'process', JSON.stringify({ rows: 150 }), '', {
-  parentEventId: e1.id,
-  status: 'error',
-  durationMs: 4200,
-});
+const e1 = aw.trace(traceId, 'agent-a', 'fetch-data',
+  'url=https://api.example.com', 'rows=150');
 
-// Find the root cause
+const e2 = aw.trace(traceId, 'agent-b', 'process',
+  JSON.stringify({ rows: 150 }), 'Error: out of memory', {
+    parentEventId: e1.id,
+    status: 'error',
+    durationMs: 4200,
+  });
+
+// 3. Find the root cause
 const chain = aw.correlate(e2.id);
-console.log(chain?.root_cause); // -> agent-a / fetch-data
+console.log(chain?.root_cause);
+// -> { agent: 'agent-a', action: 'fetch-data', ... }
 
-// Fleet dashboard
+// 4. Fleet dashboard
 console.log(aw.dashboardText());
 ```
 
@@ -53,14 +86,17 @@ console.log(aw.dashboardText());
 
 **Forensic replay** - Given a trace ID, replay all cascade chains to understand the full failure sequence.
 
+**OpenTelemetry export** - Export traces as OTEL spans with GenAI semantic conventions. Plug into Jaeger, Grafana, or any OTEL-compatible backend.
+
 ## CLI
 
 ```bash
-npx agentwatch dashboard              # Fleet health overview
-npx agentwatch cascade <event-id>     # Trace cascade from a failure
-npx agentwatch failures [agent]       # List recent failures
-npx agentwatch alerts [agent]         # List active alerts
-npx agentwatch replay <trace-id>      # Replay all cascades in a trace
+npx @nicofains1/agentwatch demo                   # See it in action with sample data
+npx @nicofains1/agentwatch dashboard              # Fleet health overview
+npx @nicofains1/agentwatch cascade <event-id>     # Trace cascade from a failure
+npx @nicofains1/agentwatch failures [agent]       # List recent failures
+npx @nicofains1/agentwatch alerts [agent]         # List active alerts
+npx @nicofains1/agentwatch replay <trace-id>      # Replay all cascades in a trace
 ```
 
 Set `AGENTWATCH_DB` to point to your database file (default: `agentwatch.db`).
@@ -71,56 +107,68 @@ Set `AGENTWATCH_DB` to point to your database file (default: `agentwatch.db`).
 
 ```typescript
 const aw = new AgentWatch({
-  db_path: 'agentwatch.db',       // SQLite file path (default: agentwatch.db)
-  alert_window_minutes: 30,        // De-dup window for alerts (default: 30)
-  heartbeat_stale_minutes: 30,     // When to mark agents as offline (default: 30)
+  db_path: 'agentwatch.db',       // SQLite file path
+  alert_window_minutes: 30,        // De-dup window for alerts
+  heartbeat_stale_minutes: 30,     // When to mark agents as offline
 });
 ```
 
 ### Heartbeats
 
 ```typescript
-aw.report(agent: string, status: 'healthy' | 'degraded' | 'error' | 'offline', context?: string)
-aw.getLatestHeartbeat(agent: string): Heartbeat | undefined
-aw.getFleetHealth(): AgentHealth[]
+aw.report(agent, status, context?)     // status: 'healthy' | 'degraded' | 'error' | 'offline'
+aw.getLatestHeartbeat(agent)           // -> Heartbeat | undefined
+aw.getFleetHealth()                    // -> AgentHealth[]
 ```
 
 ### Tracing
 
 ```typescript
-aw.createTraceId(): string
-aw.trace(traceId, agent, action, input, output, opts?): TraceEvent
-aw.getTraceEvents(traceId: string): TraceEvent[]
-aw.getRecentFailures(agent?: string, limit?: number): TraceEvent[]
+aw.createTraceId()                                // -> string (UUID)
+aw.trace(traceId, agent, action, input, output, {
+  parentEventId?: number,                         // link to parent event
+  status?: 'ok' | 'error',                        // default: 'ok'
+  durationMs?: number,                            // execution time
+})                                                // -> TraceEvent
+aw.getTraceEvents(traceId)                        // -> TraceEvent[]
+aw.getRecentFailures(agent?, limit?)              // -> TraceEvent[]
 ```
 
 ### Cascade Detection
 
 ```typescript
-aw.correlate(failureEventId: number): CascadeChain | null
-aw.replay(traceId: string): CascadeChain[]
+aw.correlate(failureEventId)    // -> CascadeChain | null (walk back to root cause)
+aw.replay(traceId)              // -> CascadeChain[] (all cascades in a trace)
 ```
 
 ### Alerts
 
 ```typescript
-aw.alert(agent, alertType, message): Alert
-aw.resolveAlert(alertId: number): void
-aw.activeAlerts(agent?: string): Alert[]
+aw.alert(agent, alertType, message)    // auto-deduplicates within window
+aw.resolveAlert(alertId)
+aw.activeAlerts(agent?)                // -> Alert[]
 ```
 
 ### Dashboard
 
 ```typescript
-aw.dashboard(): DashboardOutput
-aw.dashboardText(): string
+aw.dashboard()      // -> DashboardOutput (structured)
+aw.dashboardText()  // -> string (formatted for terminal)
+```
+
+### OpenTelemetry Export
+
+```typescript
+// Requires optional peer deps: @opentelemetry/api, @opentelemetry/sdk-trace-base
+await aw.exportTraceToOtel(traceId, { serviceName: 'my-agents' });
+await aw.exportRecentToOtel(1); // last 1 hour
 ```
 
 ## Storage
 
 Uses SQLite via `better-sqlite3`. The database file is created automatically on first use. WAL mode is enabled for concurrent reads.
 
-Tables: `heartbeats`, `trace_events`, `alerts` - all with proper indexes for fast lookups.
+Tables: `heartbeats`, `trace_events`, `alerts` - all with proper indexes.
 
 ## License
 
