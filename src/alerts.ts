@@ -36,7 +36,7 @@ export function recordAlert(
       WHERE id = ?
     `).run(newCount, severity, message, existing.id);
 
-    return { ...existing, count: newCount, severity, message, last_seen: new Date().toISOString() };
+    return { ...existing, count: newCount, severity, message, last_seen: sqliteNow(), resolved: !!existing.resolved };
   }
 
   const stmt = db.prepare(`
@@ -52,8 +52,8 @@ export function recordAlert(
     severity: 'info',
     message,
     count: 1,
-    first_seen: new Date().toISOString(),
-    last_seen: new Date().toISOString(),
+    first_seen: sqliteNow(),
+    last_seen: sqliteNow(),
     resolved: false,
   };
 }
@@ -65,20 +65,24 @@ export function resolveAlert(
   db.prepare(`UPDATE alerts SET resolved = 1 WHERE id = ?`).run(alertId);
 }
 
+function coerceAlert(row: Record<string, unknown>): Alert {
+  return { ...row, resolved: !!row.resolved } as Alert;
+}
+
 export function getActiveAlerts(
   db: Database.Database,
   agent?: string,
 ): Alert[] {
   if (agent) {
-    return db.prepare(`
+    return (db.prepare(`
       SELECT * FROM alerts WHERE agent = ? AND resolved = 0
       ORDER BY severity DESC, last_seen DESC
-    `).all(agent) as Alert[];
+    `).all(agent) as Record<string, unknown>[]).map(coerceAlert);
   }
-  return db.prepare(`
+  return (db.prepare(`
     SELECT * FROM alerts WHERE resolved = 0
     ORDER BY severity DESC, last_seen DESC
-  `).all() as Alert[];
+  `).all() as Record<string, unknown>[]).map(coerceAlert);
 }
 
 function escalateSeverity(count: number): AlertSeverity {

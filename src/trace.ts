@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { TraceEvent, CascadeStep, CascadeChain } from './types.js';
 
+/** Format a date as SQLite-compatible `YYYY-MM-DD HH:MM:SS` */
+function sqliteNow(): string {
+  const d = new Date();
+  return d.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
+}
+
 export function createTraceId(): string {
   return randomUUID();
 }
@@ -43,7 +49,7 @@ export function trace(
     parent_event_id: opts.parentEventId ?? null,
     status: opts.status ?? 'ok',
     duration_ms: opts.durationMs ?? 0,
-    created_at: new Date().toISOString(),
+    created_at: sqliteNow(),
   };
 }
 
