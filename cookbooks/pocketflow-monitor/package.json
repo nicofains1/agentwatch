@@ -1,0 +1,8 @@
+{
+  "name": "pocketflow-monitor",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nicofains1/agentwatch": "^0.2.1"
+  }
+}
