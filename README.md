@@ -88,6 +88,26 @@ console.log(aw.dashboardText());
 
 **OpenTelemetry export** - Export traces as OTEL spans with GenAI semantic conventions. Plug into Jaeger, Grafana, or any OTEL-compatible backend.
 
+## MCP Server
+
+AgentWatch works as an MCP server, so any MCP-compatible editor (Claude Code, Cursor, etc.) can use it as a tool. Add it to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "agentwatch": {
+      "command": "npx",
+      "args": ["@nicofains1/agentwatch", "mcp"],
+      "env": {
+        "AGENTWATCH_DB": "/path/to/agentwatch.db"
+      }
+    }
+  }
+}
+```
+
+This exposes 13 tools: `agentwatch_dashboard`, `agentwatch_report_heartbeat`, `agentwatch_trace`, `agentwatch_cascade`, `agentwatch_replay`, `agentwatch_get_alerts`, `agentwatch_get_failures`, `agentwatch_get_trace`, `agentwatch_fleet_health`, `agentwatch_create_trace_id`, `agentwatch_alert`, `agentwatch_resolve_alert`, and `agentwatch_dashboard_text`.
+
 ## CLI
 
 ```bash
@@ -97,6 +117,7 @@ npx @nicofains1/agentwatch cascade <event-id>     # Trace cascade from a failure
 npx @nicofains1/agentwatch failures [agent]       # List recent failures
 npx @nicofains1/agentwatch alerts [agent]         # List active alerts
 npx @nicofains1/agentwatch replay <trace-id>      # Replay all cascades in a trace
+npx @nicofains1/agentwatch mcp                    # Start MCP server (stdio)
 ```
 
 Set `AGENTWATCH_DB` to point to your database file (default: `agentwatch.db`).
