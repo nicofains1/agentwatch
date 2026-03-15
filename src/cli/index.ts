@@ -10,6 +10,9 @@ const command = args[0];
 
 if (command === 'demo') {
   runDemo();
+} else if (command === 'mcp') {
+  // Launch MCP server - dynamically import to avoid loading MCP deps for other commands
+  await import('../mcp/server.js');
 } else {
   const dbPath = process.env.AGENTWATCH_DB ?? 'agentwatch.db';
   const aw = new AgentWatch({ db_path: dbPath });
@@ -195,6 +198,7 @@ try {
       console.log('  agentwatch failures [agent]       List recent failures');
       console.log('  agentwatch alerts [agent]          List active alerts');
       console.log('  agentwatch replay <trace-id>      Replay all cascades in a trace');
+      console.log('  agentwatch mcp                    Start MCP server (stdio transport)');
       console.log('');
       console.log('Environment:');
       console.log('  AGENTWATCH_DB    Path to SQLite database (default: agentwatch.db)');

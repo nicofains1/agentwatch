@@ -1,12 +1,13 @@
 {
   "name": "@nicofains1/agentwatch",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Multi-agent observability: cascade failure detection, heartbeats, and forensic replay",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "agentwatch": "dist/cli/index.js"
+    "agentwatch": "dist/cli/index.js",
+    "agentwatch-mcp": "dist/mcp/server.js"
   },
   "scripts": {
     "build": "tsc",
@@ -16,20 +17,27 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.0"
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^11.8.0",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-base": "^1.30.0 || ^2.0.0"
   },
   "peerDependenciesMeta": {
-    "@opentelemetry/api": { "optional": true },
-    "@opentelemetry/sdk-trace-base": { "optional": true }
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-base": "^2.0.0",
-    "@types/better-sqlite3": "^7.6.8"
+    "@types/better-sqlite3": "^7.6.8",
+    "typescript": "^5.9.3"
   },
   "files": [
     "dist"
@@ -46,7 +54,11 @@
     "ai-agents",
     "debugging",
     "opentelemetry",
-    "otel"
+    "otel",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "mcp-server"
   ],
   "author": "nicofains1",
   "repository": {
