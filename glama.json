@@ -1,6 +1,27 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "AgentWatch",
+  "description": "Multi-agent observability: cascade failure detection, heartbeat monitoring, cross-agent tracing, and forensic replay",
+  "homepage": "https://github.com/nicofains1/agentwatch",
   "maintainers": [
-    "nicofains1"
+    {
+      "name": "nicofains1",
+      "url": "https://github.com/nicofains1"
+    }
+  ],
+  "tools": [
+    "agentwatch_dashboard",
+    "agentwatch_dashboard_text",
+    "agentwatch_fleet_health",
+    "agentwatch_get_alerts",
+    "agentwatch_get_failures",
+    "agentwatch_get_trace",
+    "agentwatch_cascade",
+    "agentwatch_replay",
+    "agentwatch_report_heartbeat",
+    "agentwatch_trace",
+    "agentwatch_create_trace_id",
+    "agentwatch_alert",
+    "agentwatch_resolve_alert"
   ]
 }
